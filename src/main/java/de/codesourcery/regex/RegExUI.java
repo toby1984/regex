@@ -17,6 +17,8 @@ package de.codesourcery.regex;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.function.Consumer;
 
@@ -24,8 +26,9 @@ public class RegExUI extends JFrame
 {
     private static boolean GRAPHICAL_DEBUG = false;
 
-    private final StateMachine stateMachine = new StateMachine();
-    private final JTextField regex = new JTextField("te(x|s)*t");
+    private StateMachine stateMachine = new StateMachine();
+    private final JTextArea regex = new JTextArea("number=[0-3]+\n" +
+            "identifier=[a-c]+");
     private final JTextField input = new JTextField();
 
     private final ImagePanel image = new ImagePanel();
@@ -68,7 +71,9 @@ public class RegExUI extends JFrame
             cnstrs.insets = new Insets( 5,5,5,5 );
             cnstrs.fill = GridBagConstraints.HORIZONTAL;
 
-            pane.add( regex , cnstrs );
+            regex.setColumns( 40 );
+            regex.setRows( 4 );
+            pane.add( new JScrollPane(regex), cnstrs );
 
             // input
             cnstrs = new GridBagConstraints();
@@ -98,7 +103,6 @@ public class RegExUI extends JFrame
 
             final JButton button = new JButton("apply");
             button.addActionListener( ev -> this.doApplyChanges() );
-            regex.addActionListener( ev -> this.doApplyChanges() );
             input.addActionListener( ev -> this.doApplyChanges() );
             pane.add( button , cnstrs );
 
@@ -229,8 +233,16 @@ public class RegExUI extends JFrame
         String sRegex = regex.getText();
         if ( sRegex != null && ! sRegex.isBlank() )
         {
-            stateMachine.setup( sRegex );
-            System.out.println(" *** "+stateMachine.initialState.getDebugInfo());
+            try
+            {
+                stateMachine = new LexerBuilder()
+                        .build( new ByteArrayInputStream( sRegex.getBytes()));
+                System.out.println(" *** "+stateMachine.initialState.getDebugInfo());
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+            }
             updateButtons();
             updateImage();
         }

@@ -15,7 +15,6 @@
  */
 package de.codesourcery.regex;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -25,6 +24,7 @@ import java.util.Stack;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public class StateMachine
 {
@@ -39,8 +39,6 @@ public class StateMachine
 
     private void setup(Scanner scanner)
     {
-        State.ID = 0;
-
         final Boxes boxes = new Boxes();
         while ( ! scanner.eof() ) {
             parse(scanner, boxes);
@@ -216,6 +214,17 @@ public class StateMachine
         return initialState.matches(new Scanner(input) );
     }
 
+    public StateMachine union(StateMachine other) {
+
+        final State newState = new State();
+        newState.transition( this.initialState );
+        newState.transition( other.initialState );
+
+        StateMachine result = new StateMachine();
+        result.initialState = newState;
+        return result;
+    }
+
     private void highlight(Set<State> toHighlight, String color, Consumer<State> debugImage)
     {
         initialState.resetAllColors();
@@ -357,8 +366,15 @@ public class StateMachine
                         }
                     }
 
-                    final boolean isAcceptingState = containsTerminalState( epsilonClosure );
+                    final List<State> terminalStates = epsilonClosure.stream().filter( x -> x.isTerminalState() ).collect( Collectors.toList() );
+                    if ( terminalStates.size() > 1 ) {
+                        throw new IllegalStateException("More than one terminal state ?");
+                    }
+                    final boolean isAcceptingState = ! terminalStates.isEmpty();
                     final State nextState = new State( isAcceptingState ? "END" : null );
+                    if ( isAcceptingState ) {
+                        nextState.tokenType = terminalStates.get(0).tokenType;
+                    }
                     nextState.isAcceptingState = isAcceptingState;
 
                     assignName.accept( nextState );
@@ -374,10 +390,6 @@ public class StateMachine
 
     public boolean isDFA() {
         return initialState.isDFA();
-    }
-
-    private boolean containsTerminalState(Set<State> set) {
-        return set.stream().anyMatch( s -> s.isTerminalState() );
     }
 
     private Set<State> epsilonClosure(Set<State> set)

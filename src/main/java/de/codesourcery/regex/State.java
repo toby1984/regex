@@ -38,6 +38,7 @@ public final class State
     public String color;
     public boolean isAcceptingState;
     public String debugLabel;
+    public String tokenType;
 
     public State() {
     }
@@ -104,6 +105,10 @@ public final class State
     public int hashCode()
     {
         return Objects.hash( id );
+    }
+
+    public List<State> getTerminalStates() {
+        return gatherAllStates().values().stream().filter( x -> x.isTerminalState() ).collect( Collectors.toList());
     }
 
     public State anyCharacter(State nextState)
@@ -206,6 +211,7 @@ public final class State
             newSource.debugLabel = currentNode.debugLabel;
             newSource.color = currentNode.color;
             newSource.isAcceptingState = currentNode.isAcceptingState;
+            newSource.tokenType = currentNode.tokenType;
 
             copies.put( currentNode.getID(), newSource );
 
@@ -445,11 +451,16 @@ public final class State
         {
             attributes.clear();
             String label = s.debugLabel;
-            if ( s.isTerminalState() ) {
-                if ( label == null ) {
+            if ( s.isTerminalState() )
+            {
+                if ( label == null )
+                {
                     label = "END";
                 } else {
                     label += " (END)";
+                }
+                if ( s.tokenType != null ) {
+                    label += "["+s.tokenType+"]";
                 }
             }
             if ( label != null )
