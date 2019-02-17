@@ -15,7 +15,7 @@
  */
 package de.codesourcery.regex;
 
-public class Scanner
+public class Scanner implements IScanner
 {
     private final String input;
     private int offset;
@@ -44,6 +44,12 @@ public class Scanner
 
     public boolean eof() {
         return offset >= input.length();
+    }
+
+    @Override
+    public char next()
+    {
+        return consume();
     }
 
     public int offset() {
