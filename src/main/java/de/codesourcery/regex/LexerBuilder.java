@@ -75,6 +75,28 @@ public class LexerBuilder
             throw new IllegalStateException("Graph has more than one entry node ?");
         }
 
+        // gather terminal states
+        final Map<Integer,State> terminalStates = new HashMap<>();
+        // TODO: State that is not associated with any token type
+        // TODO: but is terminal nonetheless ... maybe an artifact of a bug in my NFA -> DFA conversion ?
+        State theUnmatchedState = null;
+        for ( State state : existingStates.values() )
+        {
+            if ( state.isTerminalState() )
+            {
+                if ( state.tokenType == null || state.tokenType.isBlank() ) {
+                    if ( theUnmatchedState != null )
+                    {
+                        throw new IllegalStateException( "Terminal state " + state + " has no token type assigned ?" );
+                    }
+                    theUnmatchedState = state;
+                }
+                if ( terminalStates.put( state.getID(), state ) != null ) {
+                    throw new IllegalStateException( "State with ID "+state.getID()+" already seen?");
+                }
+            }
+        }
+
         // Index of initial state
         /*
          * Index of initial state when starting to look for the next token.
@@ -151,7 +173,12 @@ public class LexerBuilder
                 final Character c = intToCharMap.get( arrayIdx );
                 Transition transition = transitionMap.get( c );
                 if ( transition != null ) {
-                    tmp[arrayIdx] = stateIdToArrayOffset.apply( transition.destination );
+                    if ( transition.destination.equals( theUnmatchedState ) ) {
+                        tmp[arrayIdx] = -2; // special marker indicating that we moved past a recognized token
+                    } else
+                    {
+                        tmp[arrayIdx] = stateIdToArrayOffset.apply( transition.destination );
+                    }
                 } else {
                     tmp[arrayIdx] = -1;
                 }
@@ -178,28 +205,15 @@ public class LexerBuilder
         source.append("};\n\n");
 
         // output mapping of terminal states to token types
-
         final String termStates = "private static final TokenType[] tokenTypes = new TokenType[] {    \n";
         source.append( termStates );
-        final Map<Integer,State> terminalStates = new HashMap<>();
-        for ( State state : existingStates.values() )
-        {
-            if ( state.isTerminalState() )
-            {
-                if ( state.tokenType == null || state.tokenType.isBlank() ) {
-                    throw new IllegalStateException( "Terminal state "+state+" has no token type assigned ?" );
-                }
-                if ( terminalStates.put( state.getID(), state ) != null ) {
-                    throw new IllegalStateException( "State with ID "+state.getID()+" already seen?");
-                }
-            }
-        }
+
         int lineLen = termStates.length();
         for ( int i = 0, len= existingStates.values().size() ; i < len  ; i++ )
         {
             State terminal = terminalStates.get( i );
             final String toAppend;
-            if ( terminal == null ) {
+            if ( terminal == null || terminal.tokenType == null ) {
                 toAppend = "null";
             } else {
                 toAppend = terminal.tokenType;

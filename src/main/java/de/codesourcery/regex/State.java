@@ -183,18 +183,22 @@ public final class State
         return addTransition( new TransitionEpsilon( this, nextState ) );
     }
 
-    public Box copyGraph()
+    public Box copyGraph() {
+        return copyGraph( true );
+    }
+
+    public Box copyGraph(boolean unifyExits)
     {
         final Set<State> exits = new HashSet<>();
         final Map<Integer, State> seen = new HashMap<>();
         final State entry = copyGraph( this, seen, exits );
-        if ( exits.size() > 1 )
+        if ( exits.size() > 1 && unifyExits )
         {
             final State uniqueExit = new State();
             exits.forEach( t -> t.transition( uniqueExit ) );
             return new Box( entry, uniqueExit );
         }
-        if ( exits.size() == 1 )
+        else if ( exits.size() == 1 )
         {
             return new Box( entry, exits.iterator().next() );
         }
@@ -339,8 +343,17 @@ public final class State
         return allTransitions.stream().filter( x -> x.isOutgoing( this ) ).findFirst().get();
     }
 
-    public boolean isTerminalState() {
-        return isAcceptingState || outgoingTransitionCount() == 0;
+    public boolean isTerminalState()
+    {
+        if ( isAcceptingState )
+        {
+            return true;
+        }
+        if ( outgoingTransitionCount() == 0 )
+        {
+            return true;
+        }
+        return getOutgoingTransitions().stream().allMatch( t -> t.destination.equals( this ) );
     }
 
     public int removeTransition(Transition t)

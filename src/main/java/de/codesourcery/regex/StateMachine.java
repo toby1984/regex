@@ -110,26 +110,14 @@ public class StateMachine
             {
                 case '+': // 1...n
                     Box last = boxes.last();
-//                    if ( last.entry.gatherAllStates().size() == 2 )
-//                    {
-//                        final State start = last.entry;
-//                        final State end = last.exit;
-//                        for (Transition t : start.getOutgoingTransitions())
-//                        {
-//                            end.allTransitions.add( t.copy( end, start ) );
-//                        }
-//                    }
-//                    else
-//                    {
-                        Box repeat = last.entry.copyGraph();
-                        repeat.exit.transition( repeat.entry );
-                        final State newExit = new State();
-                        repeat.entry.transition( newExit );
+                    Box repeat = last.entry.copyGraph();
+                    repeat.exit.transition( repeat.entry );
+                    final State newExit = new State();
+                    repeat.entry.transition( newExit );
 
-                        final Box merged = Boxes.of( last, repeat ).join();
-                        merged.exit = newExit;
-                        boxes.set( boxes.size() - 1, merged );
-//                    }
+                    final Box merged = Boxes.of( last, repeat ).join();
+                    merged.exit = newExit;
+                    boxes.set( boxes.size() - 1, merged );
                     return;
                 case '*': // 0...n
 
@@ -281,6 +269,7 @@ public class StateMachine
                 count++;
             }
             state.debugLabel = count == 0 ? prefix : prefix+count;
+            System.out.println("State "+state.getID()+" becomes "+state.debugLabel);
         };
         assignName.accept(  first );
 
@@ -376,8 +365,8 @@ public class StateMachine
                     if ( terminalStates.size() > 1 ) {
                         throw new IllegalStateException("More than one terminal state ?");
                     }
+                    final State nextState = new State();
                     final boolean isAcceptingState = ! terminalStates.isEmpty();
-                    final State nextState = new State( isAcceptingState ? "END" : null );
                     if ( isAcceptingState ) {
                         nextState.tokenType = terminalStates.get(0).tokenType;
                     }
@@ -392,6 +381,11 @@ public class StateMachine
             });
         }
         initialState = first;
+
+        final Map<Integer, State> verify = first.gatherAllStates();
+        if ( ! initialState.isDFA() ) {
+            throw new IllegalStateException("Automaton is not a DFA ?");
+        }
     }
 
     public boolean isDFA() {
@@ -423,7 +417,7 @@ public class StateMachine
         visited.add( current );
 
         if ( current.incomingTransitionCount() == 0 || // initial state is implicitly reachable via epsilon
-             current.getIncomingTransitions().stream().anyMatch(  t -> t.isEpsilon() ) )
+                current.getIncomingTransitions().stream().anyMatch(  t -> t.isEpsilon() ) )
         {
             result.add( current );
         }

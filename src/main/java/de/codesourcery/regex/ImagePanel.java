@@ -62,7 +62,7 @@ public final class ImagePanel extends JPanel implements Consumer<State>
 
     public void show(State s)
     {
-        this.state = s.copyGraph().entry;
+        this.state = s.copyGraph(false).entry;
         try
         {
             redraw();
