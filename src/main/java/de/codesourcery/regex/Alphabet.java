@@ -45,4 +45,8 @@ public class Alphabet
         }
         characters.forEach( v::visitChar );
     }
+
+    public int size() {
+        return characters.size()+ ( containsAnyChar ? 1 : 0 );
+    }
 }

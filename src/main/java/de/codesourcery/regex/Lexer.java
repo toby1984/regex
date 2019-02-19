@@ -15,12 +15,12 @@ public class Lexer
      * Size of alphabet understood by DFA.
      * Index 0 is always the 'any char' transition (if any)
      */
-    private static final int ALPHABET_SIZE = 26; // TODO: Generated code
+    private static final int ALPHABET_SIZE = 7;
 
     /**
      * Index of initial state when starting to loook for the next token.
      */
-    private static final int INITIAL_STATE_OFFSET = -1; // TODO: Generated code
+    private static final int INITIAL_STATE_OFFSET = 7; // TODO: Generated code
 
     /**
      * State transition map. For each state there are {@link #ALPHABET_SIZE} entries
@@ -36,15 +36,23 @@ public class Lexer
      *     int ...; // offset to the next TransitionMapEntry for the specific symbol of the input alphabet
      * }
      */
-    private static final int[] transitionMap = {}; // TODO: Generated code
+    private static final int[] transitionMap = new int[] { 0,0,0,0,0,28,280,14,14,14,
+    14,21,210,0,0,0,0,28,280,28,28,28,28,35,350,28,28,28,28,28,280,28,28,28,28,35,35};
 
     /**
      * Mapping from integer indices to actual token types
      * a terminal state, the token type will be NULL.
      */
-    private static final TokenType[] tokenTypes =  {}; // TODO: Generated code
+    private static final TokenType[] tokenTypes = new TokenType[] {
+    TokenType.NUMBER,null,TokenType.NUMBER,
+    TokenType.IDENTIFIER,
+    null,
+    TokenType.IDENTIFIER
+    };
 
+    // --------------------------
     private final StringBuilder buffer = new StringBuilder();
+
 
     public Lexer(IScanner scanner) {
         this.scanner = scanner;
@@ -112,9 +120,14 @@ public class Lexer
      */
     private int mapChar(char c)
     {
-        switch( c )
-        {
-            // TODO: Generated code
+        switch( c ) {
+            case '0': return 1;
+            case '1': return 2;
+            case '2': return 3;
+            case '3': return 4;
+            case 'a': return 5;
+            case 'b': return 6;
+            case 'c': return 7;
             default:
                 return ANY_CHARACTER_INDEX;
         }

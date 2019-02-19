@@ -110,14 +110,26 @@ public class StateMachine
             {
                 case '+': // 1...n
                     Box last = boxes.last();
-                    Box repeat = last.entry.copyGraph();
-                    repeat.exit.transition(repeat.entry);
-                    final State newExit = new State();
-                    repeat.entry.transition(newExit );
+//                    if ( last.entry.gatherAllStates().size() == 2 )
+//                    {
+//                        final State start = last.entry;
+//                        final State end = last.exit;
+//                        for (Transition t : start.getOutgoingTransitions())
+//                        {
+//                            end.allTransitions.add( t.copy( end, start ) );
+//                        }
+//                    }
+//                    else
+//                    {
+                        Box repeat = last.entry.copyGraph();
+                        repeat.exit.transition( repeat.entry );
+                        final State newExit = new State();
+                        repeat.entry.transition( newExit );
 
-                    final Box merged = Boxes.of(last,repeat).join();
-                    merged.exit = newExit;
-                    boxes.set( boxes.size()-1 , merged );
+                        final Box merged = Boxes.of( last, repeat ).join();
+                        merged.exit = newExit;
+                        boxes.set( boxes.size() - 1, merged );
+//                    }
                     return;
                 case '*': // 0...n
 
@@ -216,12 +228,13 @@ public class StateMachine
 
     public StateMachine union(StateMachine other) {
 
-        final State newState = new State();
-        newState.transition( this.initialState );
-        newState.transition( other.initialState );
+        // unify starts
+        final State newStart = new State();
+        newStart.transition( this.initialState );
+        newStart.transition( other.initialState );
 
-        StateMachine result = new StateMachine();
-        result.initialState = newState;
+        final StateMachine result = new StateMachine();
+        result.initialState = newStart;
         return result;
     }
 
@@ -249,14 +262,7 @@ public class StateMachine
         */
 
         // calculate size of language
-        final Alphabet alphabet = new Alphabet();
-        initialState.visitOutgoingTransitions( transition -> {
-            if ( transition.isAnyChar() ) {
-                alphabet.addAnyChar();
-            } else if ( transition.isChar() ) {
-                alphabet.add( ((TransitionChar) transition).c );
-            }
-        });
+        final Alphabet alphabet = initialState.getAlphabet();
 
         // Begin with the Start X state and find ε-closure(X)
         final State first = new State();
@@ -417,7 +423,7 @@ public class StateMachine
         visited.add( current );
 
         if ( current.incomingTransitionCount() == 0 || // initial state is implicitly reachable via epsilon
-                current.getIncomingTransitions().stream().anyMatch(  t -> t.isEpsilon() ) )
+             current.getIncomingTransitions().stream().anyMatch(  t -> t.isEpsilon() ) )
         {
             result.add( current );
         }

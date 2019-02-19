@@ -27,8 +27,8 @@ public class RegExUI extends JFrame
     private static boolean GRAPHICAL_DEBUG = false;
 
     private StateMachine stateMachine = new StateMachine();
-    private final JTextArea regex = new JTextArea("number=[0-3]+\n" +
-            "identifier=[a-c]+");
+    private final JTextArea regex = new JTextArea("TokenType.NUMBER=(a|b)+\n" +
+            "TokenType.IDENTIFIER=(c|d)+");
     private final JTextField input = new JTextField();
 
     private final ImagePanel image = new ImagePanel();
@@ -235,9 +235,12 @@ public class RegExUI extends JFrame
         {
             try
             {
-                stateMachine = new LexerBuilder()
-                        .build( new ByteArrayInputStream( sRegex.getBytes()));
-                System.out.println(" *** "+stateMachine.initialState.getDebugInfo());
+                final LexerBuilder builder = new LexerBuilder();
+                stateMachine = builder.buildStateMachine( new ByteArrayInputStream( sRegex.getBytes() ) );
+//                final String source = builder.build( new ByteArrayInputStream( sRegex.getBytes() ) );
+//                stateMachine = builder.stateMachine;
+//                System.out.println(" *** "+stateMachine.initialState.getDebugInfo());
+//                System.out.println("\n\n\n\n"+source);
             }
             catch (IOException e)
             {

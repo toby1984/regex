@@ -30,11 +30,11 @@ import java.util.stream.Collectors;
 
 public final class State
 {
-    public static long ID = 0;
+    public static int ID = 0;
 
-    private final long id = ID++;
+    public int id = ID++;
 
-    private final List<Transition> allTransitions = new ArrayList<>();
+    public final List<Transition> allTransitions = new ArrayList<>();
     public String color;
     public boolean isAcceptingState;
     public String debugLabel;
@@ -142,7 +142,6 @@ public final class State
             }
         }
         allTransitions.add(idx,newTransition );
-
         if ( ! newTransition.isLoop() )
         {
             if (!newTransition.isEpsilon())
@@ -187,7 +186,7 @@ public final class State
     public Box copyGraph()
     {
         final Set<State> exits = new HashSet<>();
-        final Map<Long, State> seen = new HashMap<>();
+        final Map<Integer, State> seen = new HashMap<>();
         final State entry = copyGraph( this, seen, exits );
         if ( exits.size() > 1 )
         {
@@ -202,7 +201,20 @@ public final class State
         return new Box(entry,entry);
     }
 
-    private State copyGraph(State currentNode, Map<Long, State> copies, Set<State> exits)
+    public Alphabet getAlphabet()
+    {
+        final Alphabet alphabet = new Alphabet();
+        visitOutgoingTransitions( transition -> {
+            if ( transition.isAnyChar() ) {
+                alphabet.addAnyChar();
+            } else if ( transition.isChar() ) {
+                alphabet.add( ((TransitionChar) transition).c );
+            }
+        });
+        return alphabet;
+    }
+
+    private State copyGraph(State currentNode, Map<Integer, State> copies, Set<State> exits)
     {
         State newSource = copies.get( currentNode.getID() );
         if ( newSource == null )
@@ -251,7 +263,7 @@ public final class State
 
     public String getDebugInfo() {
 
-        final Map<Long, State> allStates = gatherAllStates();
+        final Map<Integer, State> allStates = gatherAllStates();
         int transitionCount = 0;
         for ( State s : allStates.values() ) {
             transitionCount += s.getOutgoingTransitions().size();
@@ -343,11 +355,14 @@ public final class State
                 if ( idx != -1 ) {
                     throw new IllegalStateException( "Already removed once ? "+t );
                 }
-                if ( this.equals( t.origination ) ) {
+                if ( this.equals( t.origination ) )
+                {
                     if ( ! t.destination.allTransitions.remove(t) ) {
                         throw new IllegalStateException("Failed to remove "+t+" from "+t.destination);
                     }
-                } else {
+                }
+                else
+                {
                     if ( ! t.origination.allTransitions.remove(t) )
                     {
                         throw new IllegalStateException("Failed to remove " + t + " from " + t.destination);
@@ -368,8 +383,8 @@ public final class State
         gatherAllStates().values().forEach( State::collapseIntermediateStates );
     }
 
-    public Map<Long, State> gatherAllStates() {
-        final Map<Long,State> allStates = new HashMap<>();
+    public Map<Integer, State> gatherAllStates() {
+        final Map<Integer,State> allStates = new HashMap<>();
         visitOutgoingStates( state -> allStates.put( state.getID(), state ) );
         return allStates;
     }
@@ -409,7 +424,7 @@ public final class State
         }
     }
 
-    public long getID() {
+    public int getID() {
         return id;
     }
 
@@ -445,7 +460,7 @@ public final class State
         buffer.append("forcelabels=true;\n");
         buffer.append("ratio=0.5;rankdir=LR;\n");
 
-        final Map<Long, State> allStates = gatherAllStates();
+        final Map<Integer, State> allStates = gatherAllStates();
         List<String> attributes = new ArrayList<>();
         for ( State s : allStates.values() )
         {
