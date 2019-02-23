@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -237,7 +236,7 @@ public class LexerBuilder
 
     public StateMachine buildStateMachine(InputStream configFile) throws IOException {
 
-        final Map<String,StateMachine> matchers = new HashMap<>();
+        final Map<String, StateMachine> matchers = new HashMap<>();
 
         StateMachine result = null;
 

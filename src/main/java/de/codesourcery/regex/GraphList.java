@@ -18,24 +18,24 @@ package de.codesourcery.regex;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Boxes
+public class GraphList
 {
-    private final List<Box> list = new ArrayList<>();
+    private final List<Subgraph> list = new ArrayList<>();
 
-    public Box last() {
+    public Subgraph last() {
         return list.get( list.size() - 1 );
     }
 
-    public void add(Box box) {
-        this.list.add( box );
+    public void add(Subgraph subgraph) {
+        this.list.add( subgraph );
     }
 
-    public void set(Box b) {
+    public void set(Subgraph b) {
         list.clear();
         list.add( b );
     }
 
-    public void set(int idx,Box b) {
+    public void set(int idx, Subgraph b) {
         list.set(idx,b);
     }
 
@@ -43,25 +43,25 @@ public class Boxes
         return list.size();
     }
 
-    public static Boxes of(Box b1) {
-        final Boxes result = new Boxes();
+    public static GraphList of(Subgraph b1) {
+        final GraphList result = new GraphList();
         result.list.add(b1);
         return result;
     }
 
-    public static Boxes of(Box b1,Box b2) {
-        final Boxes result = new Boxes();
+    public static GraphList of(Subgraph b1, Subgraph b2) {
+        final GraphList result = new GraphList();
         result.list.add(b1);
         result.list.add(b2);
         return result;
     }
 
-    public Box join()
+    public Subgraph join()
     {
         if ( list.size() == 1 ) {
             return list.get(0);
         }
-        final Box result = Box.join( this.list );
+        final Subgraph result = Subgraph.join( this.list );
         set( result );
         return result;
     }

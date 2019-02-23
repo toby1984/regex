@@ -17,34 +17,34 @@ package de.codesourcery.regex;
 
 import java.util.List;
 
-public class Box
+public class Subgraph
 {
     public State entry;
     public State exit;
 
-    public Box() {
+    public Subgraph() {
     }
 
     @Override
     public String toString()
     {
-        return "Box[ "+entry+" -> "+exit+" ]";
+        return "Subgraph[ "+entry+" -> "+exit+" ]";
     }
 
-    public Box(State entry, State exit)
+    public Subgraph(State entry, State exit)
     {
         this.entry = entry;
         this.exit = exit;
     }
 
-    public static Box join(List<Box> boxes)
+    public static Subgraph join(List<Subgraph> subgraphs)
     {
-        if ( boxes.isEmpty() ) {
+        if ( subgraphs.isEmpty() ) {
             throw new IllegalArgumentException("Nothing to merge");
         }
-        for ( int i = 0 ; (i+1) < boxes.size() ; i++ ) {
-            boxes.get(i).exit.transition(boxes.get(i+1).entry );
+        for (int i = 0; (i+1) < subgraphs.size() ; i++ ) {
+            subgraphs.get(i).exit.transition( subgraphs.get(i+1).entry );
         }
-        return new Box( boxes.get(0).entry, boxes.get( boxes.size()-1 ).exit );
+        return new Subgraph( subgraphs.get(0).entry, subgraphs.get( subgraphs.size()-1 ).exit );
     }
 }

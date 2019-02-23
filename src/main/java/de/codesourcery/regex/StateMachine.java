@@ -39,15 +39,15 @@ public class StateMachine
 
     private void setup(Scanner scanner)
     {
-        final Boxes boxes = new Boxes();
+        final GraphList graphList = new GraphList();
         while ( ! scanner.eof() ) {
-            parse(scanner, boxes);
+            parse(scanner, graphList );
         }
-        final Box first = boxes.join();
+        final Subgraph first = graphList.join();
         initialState = first.entry;
     }
 
-    private void parse(Scanner scanner, Boxes boxes)
+    private void parse(Scanner scanner, GraphList graphList)
     {
         while ( ! scanner.eof() )
         {
@@ -58,43 +58,43 @@ public class StateMachine
             }
 
             if ( currentChar == '[' ) { // character class
-                boxes.add( parseCharacterClass( scanner ) );
+                graphList.add( parseCharacterClass( scanner ) );
                 return;
             }
 
             if (currentChar == '|') // union
             {
-                final Boxes expr = new Boxes();
+                final GraphList expr = new GraphList();
                 parse(scanner, expr);
-                Box union1 = boxes.join();
-                Box union2 = expr.join();
+                Subgraph union1 = graphList.join();
+                Subgraph union2 = expr.join();
 
-                final Box result = new Box(new State(), new State());
+                final Subgraph result = new Subgraph(new State(), new State());
                 result.entry.transition(union1.entry);
                 result.entry.transition(union2.entry);
 
                 union1.exit.transition(result.exit );
                 union2.exit.transition(result.exit );
 
-                boxes.set(result);
+                graphList.set(result);
                 return;
             }
 
             if (currentChar == '(')
             {
-                final Boxes list = new Boxes();
+                final GraphList list = new GraphList();
                 parse(scanner, list);
-                final Box joined = list.join();
-                final boolean createNewBox = boxes.size() == 0 || (!scanner.eof() && isPostfixOperator( scanner.peek() ) );
+                final Subgraph joined = list.join();
+                final boolean createNewBox = graphList.size() == 0 || (!scanner.eof() && isPostfixOperator( scanner.peek() ) );
                 if ( createNewBox )
                 {
-                    boxes.add( joined );
+                    graphList.add( joined );
                 }
                 else
                 {
-                    final Box existing = boxes.join();
+                    final Subgraph existing = graphList.join();
                     existing.exit.transition( joined.entry );
-                    boxes.set( new Box( existing.entry, joined.exit ) );
+                    graphList.set( new Subgraph( existing.entry, joined.exit ) );
                 }
                 return;
             }
@@ -102,44 +102,44 @@ public class StateMachine
             if (currentChar == ')')
             {
                 // calling code relies on only one box being present
-                boxes.join();
+                graphList.join();
                 return;
             }
 
             switch (currentChar)
             {
                 case '+': // 1...n
-                    Box last = boxes.last();
-                    Box repeat = last.entry.copyGraph();
+                    Subgraph last = graphList.last();
+                    Subgraph repeat = last.entry.copyGraph();
                     repeat.exit.transition( repeat.entry );
                     final State newExit = new State();
                     repeat.entry.transition( newExit );
 
-                    final Box merged = Boxes.of( last, repeat ).join();
+                    final Subgraph merged = GraphList.of( last, repeat ).join();
                     merged.exit = newExit;
-                    boxes.set( boxes.size() - 1, merged );
+                    graphList.set( graphList.size() - 1, merged );
                     return;
                 case '*': // 0...n
 
-                    final Box newBox = boxes.join();
-                    newBox.exit.transition( newBox.entry );
+                    final Subgraph newSubgraph = graphList.join();
+                    newSubgraph.exit.transition( newSubgraph.entry );
 
                     final State newStart = new State();
-                    newStart.transition( newBox.entry );
+                    newStart.transition( newSubgraph.entry );
 
                     final State newEnd = new State();
-                    newBox.exit.transition( newEnd );
+                    newSubgraph.exit.transition( newEnd );
 
                     newStart.transition( newEnd );
-                    boxes.set( new Box( newStart, newEnd ) );
+                    graphList.set( new Subgraph( newStart, newEnd ) );
                     return;
                 case '?': // 0..1
-                    last = boxes.last();
+                    last = graphList.last();
                     last.entry.transition(last.exit);
                     return;
                 default:
-                    final boolean createNewBox = boxes.size() == 0 || (!scanner.eof() && isPostfixOperator( scanner.peek() ) );
-                    final State entry = createNewBox ? new State() : boxes.last().exit;
+                    final boolean createNewBox = graphList.size() == 0 || (!scanner.eof() && isPostfixOperator( scanner.peek() ) );
+                    final State entry = createNewBox ? new State() : graphList.last().exit;
                     final State exit = new State();
                     if (currentChar == '.')
                     {
@@ -151,19 +151,19 @@ public class StateMachine
                     }
                     if ( createNewBox )
                     {
-                        boxes.add( new Box( entry, exit ) );
+                        graphList.add( new Subgraph( entry, exit ) );
                     } else {
-                        boxes.last().exit = exit;
+                        graphList.last().exit = exit;
                     }
             }
         }
     }
 
-    private Box parseCharacterClass(Scanner scanner) {
+    private Subgraph parseCharacterClass(Scanner scanner) {
 
         final State start = new State();
         final State end = new State();
-        final Box box = new Box( start, end );
+        final Subgraph subgraph = new Subgraph( start, end );
         boolean quoted = false;
         while ( ! quoted )
         {
@@ -187,10 +187,10 @@ public class StateMachine
             }
             quoted = false;
         }
-        if ( box.entry.getAllTransitions().isEmpty() ) {
+        if ( subgraph.entry.getAllTransitions().isEmpty() ) {
             throw new IllegalStateException("Empty character class at offset "+scanner.offset());
         }
-        return box;
+        return subgraph;
     }
 
     private static boolean isPostfixOperator(char c) {

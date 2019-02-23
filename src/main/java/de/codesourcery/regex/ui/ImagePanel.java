@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.codesourcery.regex;
+package de.codesourcery.regex.ui;
+
+import de.codesourcery.regex.State;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;

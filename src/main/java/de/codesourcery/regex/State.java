@@ -183,11 +183,11 @@ public final class State
         return addTransition( new TransitionEpsilon( this, nextState ) );
     }
 
-    public Box copyGraph() {
+    public Subgraph copyGraph() {
         return copyGraph( true );
     }
 
-    public Box copyGraph(boolean unifyExits)
+    public Subgraph copyGraph(boolean unifyExits)
     {
         final Set<State> exits = new HashSet<>();
         final Map<Integer, State> seen = new HashMap<>();
@@ -196,13 +196,13 @@ public final class State
         {
             final State uniqueExit = new State();
             exits.forEach( t -> t.transition( uniqueExit ) );
-            return new Box( entry, uniqueExit );
+            return new Subgraph( entry, uniqueExit );
         }
         else if ( exits.size() == 1 )
         {
-            return new Box( entry, exits.iterator().next() );
+            return new Subgraph( entry, exits.iterator().next() );
         }
-        return new Box(entry,entry);
+        return new Subgraph(entry,entry);
     }
 
     public Alphabet getAlphabet()

@@ -1,0 +1,19 @@
+tokenType=com.voipfuture.alarming.parser.parser.TokenType
+
+	OPERATOR, // an operator
+	IDENTIFIER, // an identifier
+NUMBER=[0-9]+
+COMMA=,
+DOT=\.
+PARENS_OPEN=\(
+PARENS_CLOSE=\)
+STRING_DELIMITER='|"
+ESCAPE_CHARACTER=\\
+COLON=:
+SEMICOLON=;
+TRUE=true|truE|trUe|trUE|tRue|tRuE|tRUe|tRUE|
+     True|TruE|TrUe|TrUE|TRue|TRuE|TRUe|TRUE
+	TRUE, // true
+	FALSE, // false
+	NULL,// NULL
+	PERCENTAGE; // % literal
