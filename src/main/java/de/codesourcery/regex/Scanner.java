@@ -52,6 +52,15 @@ public class Scanner implements IScanner
         return consume();
     }
 
+    @Override
+    public void goBack()
+    {
+        if ( offset == 0 ) {
+            throw new IllegalStateException( "Already at beginning of input" );
+        }
+        offset--;
+    }
+
     public int offset() {
         return offset;
     }

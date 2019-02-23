@@ -16,4 +16,10 @@ public class Token
     public boolean hasType(TokenType t) {
         return t == tokenType;
     }
+
+    @Override
+    public String toString()
+    {
+        return "Token{text='" + text + "', offset=" + offset + ", tokenType=" + tokenType + '}';
+    }
 }

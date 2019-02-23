@@ -6,5 +6,7 @@ public interface IScanner
 
     char next();
 
-    public int offset();
+    void goBack();
+
+    int offset();
 }

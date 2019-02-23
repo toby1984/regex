@@ -5,44 +5,15 @@ import java.util.List;
 
 public class Lexer
 {
+    private static final boolean DEBUG = true;
+
     private final List<Token> tokens = new ArrayList<>();
 
     private final IScanner scanner;
 
-    private static final int ANY_CHARACTER_INDEX = 1;
+    private static final int ANY_CHARACTER_INDEX = 0;
 
-    /**
-     * Size of alphabet understood by DFA.
-     * Index 0 is always the 'any char' transition (if any)
-     */
-
-    /**
-     * Index of initial state when starting to loook for the next token.
-     */
-
-    /**
-     * State transition map. For each state there are {@link #ALPHABET_SIZE} entries
-     * in this array. If a state does not have a transition for the current input character
-     * the array will contain a -1. Otherwise it will contain the offset (=state no. * ALPHABET_SIZE) of
-     * the next state to go to.
-     *
-     * Each entry looks like this
-     *
-     * struct TransitionMapEntry {
-     *     int tokenTypeIdx; // -1 if this is not a terminal state, otherwise the index into the tokenTypes array
-     *     int anyCharOffset; // offset to the next TransitionMapEntry for 'any' character
-     *     int ...; // offset to the next TransitionMapEntry for the specific symbol of the input alphabet
-     * }
-     */
-
-    /**
-     * Mapping from integer indices to actual token types
-     * a terminal state, the token type will be NULL.
-     */
-
-    // --------------------------
     private final StringBuilder buffer = new StringBuilder();
-
 
     public Lexer(IScanner scanner) {
         this.scanner = scanner;
@@ -70,35 +41,84 @@ public class Lexer
         }
 
         buffer.setLength( 0 );
+
         int matchedTokenType = -1;
         final int startOffset = scanner.offset();
-
+        int previousState = -1;
         int currentState = INITIAL_STATE_OFFSET;
         while ( ! scanner.eof() )
         {
-            final int character = mapChar( scanner.next() );
-            buffer.append( character );
-            int nextOffset = transitionMap[currentState + character];
-            if ( nextOffset == -1 )
+            if ( DEBUG )
             {
-                // character not matched, fall-back to 'any' character
-                nextOffset = transitionMap[currentState + 1];
-                if ( nextOffset == -1 )
+                System.out.println( "current_state = " + currentState + " / matchedTokenType = " + matchedTokenType );
+            }
+            final char c = scanner.next();
+            final int character = mapChar( c );
+            if ( DEBUG )
+            {
+                System.out.println( "'" + c + "' maps to " + character );
+            }
+            int nextState = transitionMap[currentState + character];
+            if ( nextState == -2 )
+            {
+                scanner.goBack();
+                if ( DEBUG )
                 {
-                    // check whether we reached a terminal state, bail if not
-                    if ( transitionMap[ currentState ] != -1 ) {
-                        break;
+                    System.out.println( "Reached terminal state" );
+                }
+                break;
+            }
+            else if ( nextState == -1 )
+            {
+                // character not matched, try to match 'any' character
+                if ( DEBUG )
+                {
+                    System.out.println( "Match failed, trying 'any' character match." );
+                }
+                nextState = transitionMap[ currentState ];
+                if ( nextState < 0 )
+                {
+                    scanner.goBack();
+                    if ( DEBUG )
+                    {
+                        System.out.println( "'any' character match FAILED, giving up." );
                     }
-                    throw new RuntimeException( "Failed to match any token @ " + scanner.offset() );
+                    break; // failed to match
+                } else
+                {
+                    if ( DEBUG )
+                    {
+                        System.out.println( "'any' character match succeeded" );
+                    }
+                }
+            } else {
+                if ( DEBUG )
+                {
+                    System.out.println("New state: "+nextState);
                 }
             }
-            currentState = nextOffset;
-            matchedTokenType = transitionMap[ currentState ];
+            buffer.append(c);
+            currentState = nextState;
+            if ( previousState != currentState )
+            {
+                // state transition
+                if ( DEBUG )
+                {
+                    System.out.println( "State transition: " + previousState + " -> " + currentState );
+                }
+                matchedTokenType = currentState;
+            }
+            previousState = currentState;
         }
-        if ( matchedTokenType == -1 ) {
-            throw new RuntimeException("Lexer stopped in non-terminal state?");
+        final TokenType type;
+        if ( matchedTokenType < 0 )
+        {
+            type = TokenType.TEXT;
         }
-        final TokenType type = tokenTypes[ matchedTokenType ];
+        else
+        {
+            type = tokenTypes[matchedTokenType / ALPHABET_SIZE];
+        }
         tokens.add( new Token( buffer.toString(), startOffset, type ) );
     }
 
@@ -107,22 +127,22 @@ public class Lexer
     private static final int INITIAL_STATE_OFFSET = 72; // TODO: Generated code
 
     private static final int[] transitionMap = new int[] { 0,0,0,0,0,0,0,0,0,0,0,-2,-2,
-            -2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-20,-2,-2,-2,-2,
-            -2,-2,-2,-2,-2,-2,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,
-            36,36,36,360,144,144,144,144,144,144,144,144,144,144,108,108,108,108,108,108,108,
-            108,108,108,108,108,108,108,108,108,108,108,108,108,108,108,108,108,1080,-2,-2,-2,
-            -2,-2,-2,-2,-2,-2,-2,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,
-            36,36,36,36,360,0,0,0,0,0,0,0,0,0,0,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,
-            -2,-2,-2,-2,-2,-2,-2,-2,-2,-20,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,
-            -2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2};
+    -2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-20,-2,-2,-2,-2,
+    -2,-2,-2,-2,-2,-2,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,
+    36,36,36,360,144,144,144,144,144,144,144,144,144,144,108,108,108,108,108,108,108,
+    108,108,108,108,108,108,108,108,108,108,108,108,108,108,108,108,108,1080,-2,-2,-2,
+    -2,-2,-2,-2,-2,-2,-2,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,
+    36,36,36,36,360,0,0,0,0,0,0,0,0,0,0,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,
+    -2,-2,-2,-2,-2,-2,-2,-2,-2,-20,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,
+    -2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2};
 
     private static final TokenType[] tokenTypes = new TokenType[] {
-            TokenType.NUMBER,
-            TokenType.IDENTIFIER,
-            null,
-            TokenType.IDENTIFIER,
-            TokenType.NUMBER,
-            null
+    TokenType.NUMBER,
+    TokenType.IDENTIFIER,
+    null,
+    TokenType.IDENTIFIER,
+    TokenType.NUMBER,
+    null
     };
 
     private int mapChar(char c)
@@ -165,6 +185,16 @@ public class Lexer
             case 'y': return 35;
             case 'z': return 36;
             default: return ANY_CHARACTER_INDEX;
+        }
+    }
+
+    public static void main(String[] args)
+    {
+        String input = "???";
+
+        final Lexer lexer = new Lexer( new Scanner( input ) );
+        while ( ! lexer.eof() ) {
+            System.out.println("Got: "+lexer.next());
         }
     }
 }
