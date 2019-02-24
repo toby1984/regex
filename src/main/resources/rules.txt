@@ -1,3 +1,6 @@
+TRUE=true
+FALSE=false
+NULL=null
 OPERATOR=<|<=|>|>=|=|==|!=|\+|-|\*|/|NOT|~|AND|OR|IN|NOT IN|LIKE|NOT LIKE|&|\|
 IDENTIFIER=[a-z_]+[0-9a-z]*
 NUMBER=[0-9]+
@@ -9,7 +12,4 @@ STRING_DELIMITER='|"
 ESCAPE_CHARACTER=\\
 COLON=:
 SEMICOLON=;
-TRUE=true
-FALSE=false
-NULL=null
 PERCENTAGE=%

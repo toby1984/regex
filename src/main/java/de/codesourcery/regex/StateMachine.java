@@ -17,6 +17,7 @@ package de.codesourcery.regex;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
@@ -260,7 +261,7 @@ public class StateMachine
         debugImage.accept( initialState );
     }
 
-    public void toDFA(Consumer<State> debugImage, Function<Set<String>,String> ambiguityResolver)
+    public void toDFA(Consumer<State> debugImage, Function<Set<LexerBuilder.LexerRule>, LexerBuilder.LexerRule> ambiguityResolver)
     {
         final String stateNames = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
@@ -383,22 +384,22 @@ public class StateMachine
                         }
                     }
 
-                    final Set<String> tokenTypes =
+                    final Set<LexerBuilder.LexerRule> matchingRules =
                             epsilonClosure.stream()
                                     .filter( State::isTerminalState )
-                                    .map( x -> x.tokenType )
+                                    .map( x -> x.lexerRule )
                                     .collect( Collectors.toSet() );
                     final State nextState = new State();
-                    final boolean isAcceptingState = ! tokenTypes.isEmpty();
+                    final boolean isAcceptingState = ! matchingRules.isEmpty();
                     if ( isAcceptingState )
                     {
-                        if ( tokenTypes.size() > 1 )
+                        if ( matchingRules.size() > 1 )
                         {
-                            nextState.tokenType = ambiguityResolver.apply( tokenTypes );
+                            nextState.lexerRule = ambiguityResolver.apply( matchingRules );
 //                            throw new IllegalStateException("Grammar contains ambiguous lexer states: "+tokenTypes);
                         } else
                         {
-                            nextState.tokenType = tokenTypes.iterator().next();
+                            nextState.lexerRule = matchingRules.iterator().next();
                         }
                     }
                     nextState.isAcceptingState = isAcceptingState;

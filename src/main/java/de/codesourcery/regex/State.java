@@ -38,7 +38,7 @@ public final class State
     public String color;
     public boolean isAcceptingState;
     public String debugLabel;
-    public String tokenType;
+    public LexerBuilder.LexerRule lexerRule;
 
     public State() {
     }
@@ -227,7 +227,7 @@ public final class State
             newSource.debugLabel = currentNode.debugLabel;
             newSource.color = currentNode.color;
             newSource.isAcceptingState = currentNode.isAcceptingState;
-            newSource.tokenType = currentNode.tokenType;
+            newSource.lexerRule = currentNode.lexerRule;
 
             copies.put( currentNode.getID(), newSource );
 
@@ -487,8 +487,8 @@ public final class State
                 } else {
                     label += " (END)";
                 }
-                if ( s.tokenType != null ) {
-                    label += "["+s.tokenType+"]";
+                if ( s.lexerRule != null ) {
+                    label += "["+s.lexerRule.ruleName+"]";
                 }
             }
             if ( label != null )

@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -67,6 +68,22 @@ public class LexerBuilder
         }
 
         @Override
+        public boolean equals(Object o)
+        {
+            if ( o instanceof LexerRule)  {
+                final LexerRule lexerRule = (LexerRule) o;
+                return ruleName.equals( lexerRule.ruleName );
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return ruleName.hashCode();
+        }
+
+        @Override
         public String toString()
         {
             return ruleName+"="+regex+( tokenType == null ? "" : " -> "+tokenType);
@@ -120,19 +137,24 @@ outer:
      * @param config
      * @return function that takes a set of rule names and returns the one to use.
      */
-    public static Function<Set<String>, String> getAmbiguousRulesResolver(Configuration config)
+    public static Function<Set<LexerRule>, LexerRule> getAmbiguousRulesResolver(Configuration config)
     {
-        return ruleNames ->
+        return rules ->
         {
-            String first = null;
+            LexerRule first = null;
             int bestIdx = -1;
-            for ( String ruleName : ruleNames )
+            for ( LexerRule rule : rules )
             {
-                final int foundIdx = config.indexOf( config.getRule( ruleName ).get() );
+                final int foundIdx = config.indexOf( rule );
                 if ( first == null || foundIdx < bestIdx ) {
-                    first = ruleName;
+                    first = rule;
                     bestIdx = foundIdx;
                 }
+            }
+            if ( rules.size() > 1 ) {
+                System.err.println("WARNING: Ambiguous lexer rules.");
+                System.err.println("WARNING: Candidates: "+rules);
+                System.err.println("WARNING: Using "+first);
             }
             return first;
         };
@@ -204,10 +226,10 @@ outer:
         {
             if ( state.isTerminalState() )
             {
-                if ( state.tokenType == null || state.tokenType.isBlank() ) {
+                if ( state.lexerRule == null ) {
                     if ( theUnmatchedState != null )
                     {
-                        throw new IllegalStateException( "Terminal state " + state + " has no token type assigned ?" );
+                        throw new IllegalStateException( "Terminal state " + state + " has no lexer rule assigned ?" );
                     }
                     theUnmatchedState = state;
                 }
@@ -333,10 +355,10 @@ outer:
         {
             State terminal = terminalStates.get( i );
             final String toAppend;
-            if ( terminal == null || terminal.tokenType == null ) {
+            if ( terminal == null || terminal.lexerRule == null ) {
                 toAppend = "null";
             } else {
-                toAppend = terminal.tokenType;
+                toAppend = terminal.lexerRule.tokenType;
             }
             source.append( toAppend );
             lineLen+=toAppend.length();
@@ -370,7 +392,7 @@ outer:
             try
             {
                 sm.setup( regex,false );
-                sm.initialState.getTerminalStates().forEach( s -> s.tokenType = tokenType );
+                sm.initialState.getTerminalStates().forEach( s -> s.lexerRule = rule );
                 if ( result == null ) {
                     result = sm;
                 } else {
