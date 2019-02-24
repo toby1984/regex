@@ -22,7 +22,9 @@ import de.codesourcery.regex.StateMachine;
 import javax.swing.*;
 import java.awt.*;
 import java.io.ByteArrayInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.util.function.Consumer;
 
@@ -30,14 +32,30 @@ public class RegExUI extends JFrame
 {
     private static boolean GRAPHICAL_DEBUG = false;
 
+    private LexerBuilder.Configuration lexerConfiguration = new LexerBuilder.Configuration( true );
     private StateMachine stateMachine = new StateMachine();
-    private final JTextArea regex = new JTextArea("TokenType.NUMBER=a+\n" +
-            "TokenType.IDENTIFIER=b+");
+    private final JTextArea regex = new JTextArea( loadConfig() );
     private final JTextField input = new JTextField();
 
     private final ImagePanel image = new ImagePanel();
     private final JButton toDFA = new JButton("To DFA");
 
+    private static String loadConfig()
+    {
+        final String resource = "/rules.txt";
+        try (final InputStream stream = RegExUI.class.getResourceAsStream( resource ) )
+        {
+            if ( stream == null ) {
+                throw new FileNotFoundException( "Failed to open "+resource );
+            }
+            return new String(stream.readAllBytes());
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+    }
     public RegExUI()
     {
         super("RegEx UI");
@@ -187,7 +205,7 @@ public class RegExUI extends JFrame
                 {
                     try
                     {
-                        stateMachine.toDFA( stateConsumer );
+                        stateMachine.toDFA( stateConsumer , LexerBuilder.getAmbiguousRulesResolver( lexerConfiguration ) );
                         System.out.println(" *** "+stateMachine.initialState.getDebugInfo());
                     }
                     finally
@@ -240,7 +258,8 @@ public class RegExUI extends JFrame
             try
             {
                 final LexerBuilder builder = new LexerBuilder();
-                stateMachine = builder.buildStateMachine( new ByteArrayInputStream( sRegex.getBytes() ) );
+                lexerConfiguration = builder.parseConfiguration( new ByteArrayInputStream( sRegex.getBytes() ), true );
+                stateMachine = builder.buildStateMachine( lexerConfiguration );
                 final String source = builder.build( new ByteArrayInputStream( sRegex.getBytes() ) );
 //                stateMachine = builder.stateMachine;
                 System.out.println(" *** "+stateMachine.initialState.getDebugInfo());

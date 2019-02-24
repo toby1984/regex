@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -19,13 +21,132 @@ public class LexerBuilder
 {
     public StateMachine stateMachine;
 
+    public static final class Configuration
+    {
+        public final List<LexerRule> rules = new ArrayList<>();
+        public final boolean caseInsensitive;
+
+        public Configuration(boolean caseInsensitive) {
+            this.caseInsensitive = caseInsensitive;
+        }
+
+        public int indexOf(LexerRule rule)
+        {
+            final int idx = rules.indexOf( rule );
+            if ( idx == -1 ) {
+                throw new IllegalArgumentException( "Unknown rule "+rule );
+            }
+            return idx;
+        }
+
+        public Optional<LexerRule> getRule(String ruleName) {
+            return rules.stream().filter( r -> r.ruleName.equals( ruleName ) ).findFirst();
+        }
+
+        public void addRule(String ruleName,String regex, String tokenType)
+        {
+            final LexerRule newRule = new LexerRule( ruleName, regex, tokenType);
+            if ( rules.stream().anyMatch( x -> x.ruleName.equals( newRule.ruleName ) ) ) {
+                throw new IllegalArgumentException( "Duplicate rule '"+newRule.ruleName+"'" );
+            }
+            rules.add( newRule );
+        }
+    }
+
+    public static final class LexerRule {
+
+        public final String ruleName;
+        public final String regex;
+        public final String tokenType;
+
+        public LexerRule(String ruleName, String regex,String tokenType)
+        {
+            this.ruleName = ruleName;
+            this.regex = regex;
+            this.tokenType = tokenType;
+        }
+
+        @Override
+        public String toString()
+        {
+            return ruleName+"="+regex+( tokenType == null ? "" : " -> "+tokenType);
+        }
+    }
+
+    public Configuration parseConfiguration(InputStream configFile,boolean caseInsensitive) throws IOException {
+
+        final Configuration result = new Configuration(caseInsensitive);
+        try ( BufferedReader reader = new BufferedReader( new InputStreamReader(configFile) ) )
+        {
+            String line;
+            int lineNo = 1;
+outer:
+            for ( ; ( line = reader.readLine() ) != null ; lineNo++ )
+            {
+                line = line.trim();
+                if ( line.isBlank() ) {
+                    continue;
+                }
+                System.out.println("LINE: "+line);
+                for ( int i = 0 , l = line.length(); i < l ; i++ )
+                {
+                    final char c = line.charAt( i );
+                    if ( c == '#' )
+                    {
+                        continue outer;
+                    }
+                    if ( c != ' ' && c != '\t' ) {
+                        break;
+                    }
+                }
+                final int idx = line.indexOf( "=" );
+                if ( idx == -1 ) {
+                    throw new IllegalArgumentException("Missing '=' on line "+lineNo);
+                }
+                final String tokenType = line.substring(0,idx);
+                final String regex = line.substring(idx+1);
+                if ( regex.isBlank() ) {
+                    throw new IllegalArgumentException( "Blank regex on line "+lineNo );
+                }
+                // TODO: tokenType is also used as rule name here
+                result.addRule( tokenType, regex, tokenType);
+            }
+        }
+        return result;
+    }
+
+    /**
+     *
+     * @param config
+     * @return function that takes a set of rule names and returns the one to use.
+     */
+    public static Function<Set<String>, String> getAmbiguousRulesResolver(Configuration config)
+    {
+        return ruleNames ->
+        {
+            String first = null;
+            int bestIdx = -1;
+            for ( String ruleName : ruleNames )
+            {
+                final int foundIdx = config.indexOf( config.getRule( ruleName ).get() );
+                if ( first == null || foundIdx < bestIdx ) {
+                    first = ruleName;
+                    bestIdx = foundIdx;
+                }
+            }
+            return first;
+        };
+    }
+
     public String build(InputStream configFile) throws IOException
     {
-        stateMachine = buildStateMachine( configFile );
+        final Configuration config = parseConfiguration( configFile, true );
+
+        stateMachine = buildStateMachine( config );
 
         if ( ! stateMachine.isDFA() )
         {
-            stateMachine.toDFA( state -> {} );
+            stateMachine.toDFA( state -> {}, getAmbiguousRulesResolver( config ) );
             if ( ! stateMachine.isDFA() ) {
                 throw new IllegalStateException("DFA conversion failed");
             }
@@ -65,7 +186,7 @@ public class LexerBuilder
 
         // get initial state
         final List<State> entryStates =
-        existingStates.values().stream().filter( x -> x.incomingTransitionCount() == 0 ).collect( Collectors.toList() );
+                existingStates.values().stream().filter( x -> x.incomingTransitionCount() == 0 ).collect( Collectors.toList() );
 
         if ( entryStates.isEmpty() ) {
             throw new IllegalStateException("Graph has no entry node ?");
@@ -106,8 +227,8 @@ public class LexerBuilder
 
         // character -> index mapping
         final StringBuilder mappingFunc = new StringBuilder("    private int mapChar(char c)\n" +
-                                                            "    {\n" +
-                                                            "        switch( c ) {\n");
+                "    {\n" +
+                "        switch( c ) {\n");
 
         final Map<Character,Integer> characterMap = new HashMap<>();
         final Map<Integer,Character> intToCharMap = new HashMap<>();
@@ -128,7 +249,7 @@ public class LexerBuilder
             idx++;
         }
         mappingFunc.append("        default: return ANY_CHARACTER_INDEX;\n    }\n" +
-                           "    }\n");
+                "    }\n");
 
         // transition map
         final String s = "private static final int[] transitionMap = new int[] { ";
@@ -234,58 +355,30 @@ public class LexerBuilder
         return source.toString();
     }
 
-    public StateMachine buildStateMachine(InputStream configFile) throws IOException {
+    public StateMachine buildStateMachine(Configuration config) throws IOException {
 
         final Map<String, StateMachine> matchers = new HashMap<>();
 
         StateMachine result = null;
 
-        try ( BufferedReader reader = new BufferedReader( new InputStreamReader(configFile) ) ) {
-            String line;
-            int lineNo = 1;
-outer:
-            for ( ; ( line = reader.readLine() ) != null ; lineNo++ )
+        for ( LexerRule rule : config.rules )
+        {
+            final String tokenType = rule.ruleName;
+            final String regex = rule.regex;
+            final StateMachine sm = new StateMachine();
+            matchers.put( tokenType, sm );
+            try
             {
-                line = line.trim();
-                System.out.println("LINE: "+line);
-                for ( int i = 0 , l = line.length(); i < l ; i++ )
-                {
-                    final char c = line.charAt( i );
-                    if ( c == '#' )
-                    {
-                        continue outer;
-                    }
-                    if ( c != ' ' && c != '\t' ) {
-                        break;
-                    }
+                sm.setup( regex,false );
+                sm.initialState.getTerminalStates().forEach( s -> s.tokenType = tokenType );
+                if ( result == null ) {
+                    result = sm;
+                } else {
+                    result = result.union( sm );
                 }
-                final int idx = line.indexOf( "=" );
-                if ( idx == -1 ) {
-                    throw new IllegalArgumentException("Missing '=' on line "+lineNo);
-                }
-                final String tokenType = line.substring(0,idx);
-                if ( matchers.containsKey( tokenType ) ) {
-                    throw new IllegalArgumentException("Duplicate token type '"+tokenType+"' on line "+lineNo);
-                }
-                final String regex = line.substring(idx+1);
-                if ( regex.isBlank() ) {
-                    throw new IllegalArgumentException( "Blank regex on line "+lineNo );
-                }
-                final StateMachine sm = new StateMachine();
-                matchers.put( tokenType, sm );
-                try
-                {
-                    sm.setup( regex );
-                    sm.initialState.getTerminalStates().forEach( s -> s.tokenType = tokenType );
-                    if ( result == null ) {
-                        result = sm;
-                    } else {
-                        result = result.union( sm );
-                    }
-                }
-                catch(Exception e) {
-                    throw new IllegalArgumentException("Invalid regex for token '"+tokenType+"' on line "+lineNo+": "+e.getMessage(),e);
-                }
+            }
+            catch(Exception e) {
+                throw new IllegalArgumentException("Invalid regex for rule '"+tokenType+"'");
             }
         }
         return result;
@@ -295,7 +388,7 @@ outer:
     {
         final LexerBuilder builder = new LexerBuilder();
         final String input = "# comment\n"+
-                             "number=[0-9]+";
+                "number=[0-9]+";
         builder.build( new ByteArrayInputStream( input.getBytes() ) );
     }
 }

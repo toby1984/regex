@@ -17,12 +17,12 @@ package de.codesourcery.regex;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -30,10 +30,12 @@ public class StateMachine
 {
     public State initialState;
     private String expression;
+    private boolean caseInsensitive;
 
-    public void setup(String regex)
+    public void setup(String regex,boolean caseInsensitive)
     {
         this.expression = regex;
+        this.caseInsensitive = caseInsensitive;
         setup(new Scanner(regex));
     }
 
@@ -55,6 +57,8 @@ public class StateMachine
             if (currentChar == '\\')
             {
                 currentChar = scanner.consume();
+                addCharTransition( scanner, graphList, currentChar, true );
+                continue;
             }
 
             if ( currentChar == '[' ) { // character class
@@ -138,24 +142,42 @@ public class StateMachine
                     last.entry.transition(last.exit);
                     return;
                 default:
-                    final boolean createNewBox = graphList.size() == 0 || (!scanner.eof() && isPostfixOperator( scanner.peek() ) );
-                    final State entry = createNewBox ? new State() : graphList.last().exit;
-                    final State exit = new State();
-                    if (currentChar == '.')
-                    {
-                        entry.anyCharacter(exit);
-                    }
-                    else
-                    {
-                        entry.transition(currentChar, exit);
-                    }
-                    if ( createNewBox )
-                    {
-                        graphList.add( new Subgraph( entry, exit ) );
-                    } else {
-                        graphList.last().exit = exit;
-                    }
+                    addCharTransition( scanner, graphList, currentChar, false );
             }
+        }
+    }
+
+    private void addCharTransition(Scanner scanner, GraphList graphList, char currentChar,boolean quoted)
+    {
+        final boolean createNewBox = graphList.size() == 0 || (!scanner.eof() && isPostfixOperator( scanner.peek() ) );
+        final State entry = createNewBox ? new State() : graphList.last().exit;
+        final State exit = new State();
+        if (currentChar == '.' && ! quoted )
+        {
+            entry.anyCharacter(exit);
+        }
+        else
+        {
+            if ( caseInsensitive )
+            {
+                final char lower = Character.toLowerCase( currentChar );
+                final char upper= Character.toUpperCase( currentChar );
+                if ( lower != upper )
+                {
+                    entry.transition( lower, exit );
+                    entry.transition( upper, exit );
+                } else {
+                    entry.transition( currentChar, exit );
+                }
+            } else {
+                entry.transition( currentChar, exit );
+            }
+        }
+        if ( createNewBox )
+        {
+            graphList.add( new Subgraph( entry, exit ) );
+        } else {
+            graphList.last().exit = exit;
         }
     }
 
@@ -238,7 +260,7 @@ public class StateMachine
         debugImage.accept( initialState );
     }
 
-    public void toDFA(Consumer<State> debugImage)
+    public void toDFA(Consumer<State> debugImage, Function<Set<String>,String> ambiguityResolver)
     {
         final String stateNames = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
@@ -361,14 +383,23 @@ public class StateMachine
                         }
                     }
 
-                    final List<State> terminalStates = epsilonClosure.stream().filter( x -> x.isTerminalState() ).collect( Collectors.toList() );
-                    if ( terminalStates.size() > 1 ) {
-                        throw new IllegalStateException("More than one terminal state ?");
-                    }
+                    final Set<String> tokenTypes =
+                            epsilonClosure.stream()
+                                    .filter( State::isTerminalState )
+                                    .map( x -> x.tokenType )
+                                    .collect( Collectors.toSet() );
                     final State nextState = new State();
-                    final boolean isAcceptingState = ! terminalStates.isEmpty();
-                    if ( isAcceptingState ) {
-                        nextState.tokenType = terminalStates.get(0).tokenType;
+                    final boolean isAcceptingState = ! tokenTypes.isEmpty();
+                    if ( isAcceptingState )
+                    {
+                        if ( tokenTypes.size() > 1 )
+                        {
+                            nextState.tokenType = ambiguityResolver.apply( tokenTypes );
+//                            throw new IllegalStateException("Grammar contains ambiguous lexer states: "+tokenTypes);
+                        } else
+                        {
+                            nextState.tokenType = tokenTypes.iterator().next();
+                        }
                     }
                     nextState.isAcceptingState = isAcceptingState;
 
