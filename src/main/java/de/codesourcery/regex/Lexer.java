@@ -15,6 +15,8 @@ public class Lexer
 
     private final StringBuilder buffer = new StringBuilder();
 
+    private boolean skipWhitespace = true;
+
     public Lexer(IScanner scanner) {
         this.scanner = scanner;
     }
@@ -33,17 +35,41 @@ public class Lexer
         return tokens.remove(0);
     }
 
+    public void setSkipWhitespace(boolean yesNo)
+    {
+        if ( this.skipWhitespace != yesNo )
+        {
+            if ( ! this.tokens.isEmpty() ) {
+                this.scanner.setOffset( this.tokens.get(0).offset );
+                this.tokens.clear();
+            }
+            this.skipWhitespace = yesNo;
+        }
+    }
+
+    private static final boolean isWhitespace(char c) {
+        return c == '\t' || c == ' ';
+    }
+
     private void parse()
     {
-        if ( scanner.eof() ) {
+        if ( scanner.eof() )
+        {
             tokens.add( new Token("",scanner.offset(),TokenType.EOF));
             return;
         }
 
         buffer.setLength( 0 );
 
-        int matchedTokenType = -1;
         final int startOffset = scanner.offset();
+        for ( ; ! scanner.eof() && isWhitespace( scanner.peek() ) ; ) {
+            buffer.append( scanner.next() );
+        }
+        if ( buffer.length() > 0 ) {
+            tokens.add( new Token(buffer.toString(),scanner.offset(),TokenType.WHITESPACE));
+            return;
+        }
+        int matchedTokenType = -1;
         int previousState = -1;
         int currentState = INITIAL_STATE_OFFSET;
         while ( ! scanner.eof() )
@@ -53,6 +79,15 @@ public class Lexer
                 System.out.println( "current_state = " + currentState + " / matchedTokenType = " + matchedTokenType );
             }
             final char c = scanner.next();
+            if ( isWhitespace( c ) )
+            {
+                if ( skipWhitespace )
+                {
+                    continue;
+                }
+                scanner.goBack();
+                return;
+            }
             final int character = mapChar( c );
             if ( DEBUG )
             {
@@ -84,7 +119,8 @@ public class Lexer
                         System.out.println( "'any' character match FAILED, giving up." );
                     }
                     break; // failed to match
-                } else
+                }
+                else
                 {
                     if ( DEBUG )
                     {

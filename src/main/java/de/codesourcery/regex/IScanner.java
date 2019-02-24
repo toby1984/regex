@@ -6,7 +6,11 @@ public interface IScanner
 
     char next();
 
+    char peek();
+
     void goBack();
+
+    void setOffset(int offset);
 
     int offset();
 }

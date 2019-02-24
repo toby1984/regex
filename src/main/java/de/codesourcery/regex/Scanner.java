@@ -25,7 +25,6 @@ public class Scanner implements IScanner
         this.input = input;
     }
 
-
     public char peek() {
         return input.charAt(offset);
     }
@@ -42,6 +41,7 @@ public class Scanner implements IScanner
         return false;
     }
 
+    @Override
     public boolean eof() {
         return offset >= input.length();
     }
@@ -61,10 +61,12 @@ public class Scanner implements IScanner
         offset--;
     }
 
+    @Override
     public int offset() {
         return offset;
     }
 
+    @Override
     public void setOffset(int offset) {
         this.offset = offset;
     }
