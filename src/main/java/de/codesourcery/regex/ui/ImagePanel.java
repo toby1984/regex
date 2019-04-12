@@ -88,11 +88,13 @@ public final class ImagePanel extends JPanel implements Consumer<State>
             return;
         }
 
-        final String dot = state.toDOT(getSize(), false);
+//        final String dot = state.toDOT(getSize(), false);
+        final String dot = state.toDOT(null, false);
         File dotFile = File.createTempFile( "temp", ".dot" );
-        System.out.println("Dot output is in "+dotFile.getAbsolutePath());
+        System.out.println("Dot file is "+dotFile.getAbsolutePath());
         dotFile.deleteOnExit();
         File imageFile = File.createTempFile( "temp", ".png" );
+        System.out.println("PNG image is "+imageFile.getAbsolutePath());
         imageFile.deleteOnExit();
         try ( PrintWriter w = new PrintWriter( dotFile) ) {
             w.write( dot );
@@ -102,6 +104,8 @@ public final class ImagePanel extends JPanel implements Consumer<State>
 
         final int exitCode = process.waitFor();
         if ( exitCode != 0 ) {
+            final byte[] bytes = process.getErrorStream().readAllBytes();
+            System.err.println("ERROR: "+new String(bytes));
             throw new IOException("DOT execution failed with exit code "+exitCode);
         }
         image = ImageIO.read( imageFile );

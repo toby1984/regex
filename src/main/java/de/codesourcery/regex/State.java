@@ -493,7 +493,7 @@ public final class State
             }
             if ( label != null )
             {
-                attributes.add("label=\""+label+"\"");
+                attributes.add("label=\""+dotEscape(label)+"\"");
             }
             if ( s.color != null ) {
                 attributes.add("color="+s.color);
@@ -515,14 +515,18 @@ public final class State
                 final String label = t.name;
                 if ( outgoing )
                 {
-                    buffer.append( getDOTId( t.origination ) + " -> " + getDOTId( t.destination ) + " [color=" + color + ",label=\""+label+"\"]\n" );
+                    buffer.append( getDOTId( t.origination ) + " -> " + getDOTId( t.destination ) + " [color=" + color + ",label=\""+dotEscape(label)+"\"]\n" );
                 } else if (alsoRenderIncoming) {
-                    buffer.append( getDOTId( t.destination ) + " -> " + getDOTId( t.origination ) + " [color=" + color + ",label=\""+label+"\"]\n" );
+                    buffer.append( getDOTId( t.destination ) + " -> " + getDOTId( t.origination ) + " [color=" + color + ",label=\""+dotEscape(label)+"\"]\n" );
                 }
             }
         }
         buffer.append("}");
         return buffer.toString();
+    }
+
+    private String dotEscape(String input) {
+        return input == null ? null : input.replace( "\"", "\\\"" );
     }
 
     private static String getDOTId(State s) {
