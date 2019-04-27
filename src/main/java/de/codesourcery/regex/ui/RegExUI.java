@@ -232,6 +232,28 @@ public class RegExUI extends JFrame
 
             pane.add( new JScrollPane(image), cnstrs );
 
+            // zoom in / zoom out
+            JButton zoomIn = new JButton("+");
+            zoomIn.addActionListener( ev -> image.zoomIn() );
+
+            JButton zoomOut = new JButton("-");
+            zoomOut.addActionListener( ev -> image.zoomOut() );
+
+            JPanel tb = new JPanel();
+            tb.setLayout(  new FlowLayout() );
+            tb.add( zoomIn );
+            tb.add( zoomOut );
+
+            cnstrs = new GridBagConstraints();
+            cnstrs.gridx = 0; cnstrs.gridy = 4;
+            cnstrs.weightx = 1 ; cnstrs.weighty = 0.8;
+            cnstrs.gridwidth = 3; cnstrs.gridheight = 1;
+            cnstrs.insets = new Insets( 5,5,5,5 );
+            cnstrs.fill = GridBagConstraints.BOTH;
+
+            pane.add( tb, cnstrs );
+
+
             // show UI
             setPreferredSize( new Dimension( 640, 480 ) );
             setLocationRelativeTo( null );

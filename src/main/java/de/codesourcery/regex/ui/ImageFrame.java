@@ -25,15 +25,20 @@ public class ImageFrame extends JFrame
 {
     private final ImagePanel imagePanel = new ImagePanel();
 
-    public ImageFrame() throws HeadlessException
+    public ImageFrame()
     {
         super("Debug");
 
-        getContentPane().setLayout( new BorderLayout() );
-        getContentPane().add( imagePanel, BorderLayout.CENTER );
+        getContentPane().setLayout( new GridBagLayout() );
+        final GridBagConstraints cnstrs = new GridBagConstraints();
+        cnstrs.weightx=1.0;
+        cnstrs.weighty=1.0;
+        cnstrs.fill = GridBagConstraints.BOTH;
+        final JScrollPane pane = new JScrollPane( imagePanel );
+        getContentPane().add( pane, cnstrs );
     }
 
-    public void show(State s) throws IOException, InterruptedException
+    public void show(State s)
     {
         imagePanel.show(s);
     }

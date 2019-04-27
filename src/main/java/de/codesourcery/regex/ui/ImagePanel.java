@@ -25,46 +25,64 @@ import java.awt.event.ComponentEvent;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-public final class ImagePanel extends JPanel implements Consumer<State>
+public final class ImagePanel extends JPanel implements Consumer<State>, Scrollable
 {
+    private static final int REPAINT_DELAY_MILLIS = 500;
+
     private static final String DOT_PATH = "/usr/bin/dot";
 
-    private Image image;
+    private final AtomicReference<Image> imageRef = new AtomicReference<>();
 
-    private State state;
+    private final AtomicReference<State> stateRef = new AtomicReference<>();
+
+    private final RedrawThread thread = new RedrawThread();
+
+    private double zoom = 1.0;
 
     public ImagePanel()
     {
+        thread.start();
         addComponentListener( new ComponentAdapter()
         {
             @Override
             public void componentResized(ComponentEvent e)
             {
-                try
-                {
-                    redraw();
-                }
-                catch (Exception e1)
-                {
-                    e1.printStackTrace();
-                }
+                redraw();
             }
         } );
     }
 
+    public void zoomOut() {
+
+        if ( zoom-0.1 > 0 ) {
+            zoom -= 0.1;
+            redraw();
+        }
+    }
+
+    public void zoomIn() {
+
+        if ( zoom+0.1 <= 5 ) {
+            zoom += 0.1;
+            redraw();
+        }
+    }
+
     private void setImage(Image image)
     {
-        this.image = image;
+        this.imageRef.set( image );
         revalidate();
         repaint();
         Toolkit.getDefaultToolkit().sync();
+        System.out.println("sync() called");
     }
 
     public void show(State s)
     {
-        this.state = s.copyGraph(false).entry;
+        this.stateRef.set( s.copyGraph(false).entry );
         try
         {
             redraw();
@@ -75,21 +93,131 @@ public final class ImagePanel extends JPanel implements Consumer<State>
         }
     }
 
-    private void redraw() throws IOException, InterruptedException
+    @Override
+    public Dimension getPreferredSize()
     {
-        renderImage();
-        setImage( image );
+        final Image image =
+                imageRef.get();
+        return image == null ? super.getPreferredSize() : new Dimension(image.getWidth( null ), image.getHeight(null) );
     }
 
-    private void renderImage() throws IOException, InterruptedException
+    @Override
+    public Dimension getPreferredScrollableViewportSize()
     {
-        image = null;
-        if ( state == null ) {
-            return;
+        return new Dimension(400,200);
+    }
+
+    @Override
+    public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction)
+    {
+        return 10;
+    }
+
+    @Override
+    public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction)
+    {
+        return 10;
+    }
+
+    @Override
+    public boolean getScrollableTracksViewportWidth()
+    {
+        return false;
+    }
+
+    @Override
+    public boolean getScrollableTracksViewportHeight()
+    {
+        return false;
+    }
+
+    private final class RedrawThread extends Thread {
+
+        private final Object LOCK = new Object();
+
+        // @GuardedBy( LOCK )
+        private long lastTrigger = System.currentTimeMillis();
+
+        {
+            setDaemon(true);
         }
 
-//        final String dot = state.toDOT(getSize(), false);
-        final String dot = state.toDOT(null, false);
+        @Override
+        public void run()
+        {
+            while ( true )
+            {
+                synchronized(LOCK)
+                {
+                    if ( ! shouldRun() )
+                    {
+                        System.out.println("Deferring redraw");
+                        try
+                        {
+                            LOCK.wait( REPAINT_DELAY_MILLIS );
+                        }
+                        catch (InterruptedException e)
+                        {
+                            e.printStackTrace();
+                        }
+                        continue;
+                    }
+                    lastTrigger = 0;
+                }
+                try
+                {
+                    internalRedraw();
+                }
+                catch (Exception e)
+                {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        private boolean shouldRun()
+        {
+            synchronized(LOCK)
+            {
+                if ( lastTrigger == 0 ) {
+                    return false;
+                }
+                final long now = System.currentTimeMillis();
+                final long elapsed = now - lastTrigger;
+                return elapsed > REPAINT_DELAY_MILLIS;
+            }
+        }
+
+        public void trigger()
+        {
+            synchronized( LOCK )
+            {
+                lastTrigger = System.currentTimeMillis();
+                LOCK.notifyAll();
+            }
+        }
+    }
+
+    private void redraw() {
+        thread.trigger();
+    }
+
+    private void internalRedraw() throws IOException, InterruptedException
+    {
+        System.out.println("Now rendering image...");
+        final Image image = renderImage();
+        System.out.println("Done rendering image ("+image.getWidth( null) +" x "+image.getHeight( null ));
+        SwingUtilities.invokeLater( () -> setImage( image ) );
+    }
+
+    private Image renderImage() throws IOException, InterruptedException
+    {
+        if ( stateRef.get() == null ) {
+            return imageRef.get();
+        }
+
+//      final String dot = state.toDOT(getSize(), false);
+        final String dot = stateRef.get().toDOT(null, false);
         File dotFile = File.createTempFile( "temp", ".dot" );
         System.out.println("Dot file is "+dotFile.getAbsolutePath());
         dotFile.deleteOnExit();
@@ -108,28 +236,30 @@ public final class ImagePanel extends JPanel implements Consumer<State>
             System.err.println("ERROR: "+new String(bytes));
             throw new IOException("DOT execution failed with exit code "+exitCode);
         }
-        image = ImageIO.read( imageFile );
+        return ImageIO.read( imageFile );
     }
 
     @Override
     protected void paintComponent(Graphics g)
     {
         super.paintComponent( g );
-        if ( state!= null )
+        if ( stateRef.get() != null )
         {
-            if ( image == null || image.getWidth( null ) != getWidth() || image.getHeight( null ) != getHeight() ) {
-                try
-                {
-                    renderImage();
-                }
-                catch (Exception e)
-                {
-                    e.printStackTrace();
-                }
+            Image image = imageRef.get();
+            if ( image == null ) {
+                redraw();
             }
-            if ( image != null )
+            else
             {
-                g.drawImage( image, 0, 0, null );
+                System.out.println("Painting image");
+                if ( zoom == 1.0 )
+                {
+                    g.drawImage( image, 0, 0, null );
+                } else {
+                    int w = (int) (image.getWidth( null )*zoom);
+                    int h = (int) (image.getHeight( null )*zoom);
+                    g.drawImage( image, 0, 0,  w, h, null );
+                }
             }
         }
     }
